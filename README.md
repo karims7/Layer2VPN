@@ -15,7 +15,7 @@ You’ll have two computers:
 
 Each one runs your C program (vport).
 
-Each vport creates its own TAP device (say tapyuan).
+Each vport creates its own TAP device (say ShadabsTap).
 
 The OS thinks each TAP is a local network card.
 

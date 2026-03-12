@@ -6,9 +6,7 @@
 #include <errno.h>
 
 #define ERROR_PRINT_THEN_EXIT(msg...) \
-    do { \
-        fprintf(stderr, ##msg); \
-        exit(1); \
-    } while(0)
+  fprintf(stderr, ##msg);       \
+  exit(1);
 
 #endif
