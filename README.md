@@ -83,27 +83,3 @@ Imagine this project as if it were a real physical network installation.
 ### In one sentence
 
 This project is like putting a fake wall network socket in each room, wiring each room to a central switch, and using that switch to let remote computers talk to each other as if they were on the same local network.
-
-### Suggested README section
-
-You can add a section like this to your README:
-
-```markdown
-## Physical Analogy
-
-Imagine each computer as a room in a building.
-
-- The TAP device is a wall network socket inside the room.
-- `VPort` is the wiring box behind the wall that connects that socket to a cable.
-- The UDP socket is the cable running from the room to the central switch.
-- `VSwitch` is the switch in the closet that connects all the rooms together.
-
-So, when one computer sends data:
-
-1. the data enters the TAP socket,
-2. `VPort` sends it through the cable,
-3. the switch receives it,
-4. and the switch forwards it to the right remote room.
-
-This makes remote computers behave as if they were plugged into the same physical Ethernet switch.
-```
