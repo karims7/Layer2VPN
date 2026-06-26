@@ -19,39 +19,6 @@ struct vport_t {
 };
 
 
-
-int main (int argc, char const *argv[]){
-
-    if (argc != 3) {
-        ERROR_PRINT_THEN_EXIT("Usage: vport {server_ip} {server_port}\n");
-    }
-
-    const char *server_ip_str = argv[1];
-    int server_port = atoi(argv[2]);
-
-    struct vport_t vport;
-    vport_init(&vport, server_ip_str, server_port);
-
-    pthread_t up_forwarder;
-    if (pthread_create(&up_forwarder, NULL, forward_ether_data_to_vswitch, &vport) != 0 ) {
-        ERROR_PRINT_THEN_EXIT("fail to pthread_create: %s\n", strerror(errno));
-    }
-
-    pthread_t down_forwarder;
-    if (pthread_create(&down_forwarder, NULL, forward_ether_data_to_tap, &vport) != 0) {
-        ERROR_PRINT_THEN_EXIT("fail to pthread_create: %s\n", strerror(errno));
-    }
-
-    if (pthread_join(up_forwarder, NULL) != 0 || pthread_join(down_forwarder, NULL) != 0) {
-        ERROR_PRINT_THEN_EXIT("fail to pthread_join: %s\n", strerror(errno));
-    }
-
-    return 0;
-
-
-
-}
-
 /*
 IFNAMSIZ: Max size of interface name. Defined in <net/if.h>, by the system. Usually 16 which is the max size allowed for interface name.
 
@@ -99,4 +66,141 @@ void vport_init(struct vport_t *vport, const char *server_ip_string, int server_
 
 void *forward_ether_data_to_vswitch(void *raw_vport) {
     
+}
+
+
+
+```c
+void *forward_ether_data_to_vswitch(void *raw_vport_pointer)
+{
+    struct vport_t *vport = (struct vport_t *)raw_vport_pointer;
+
+    // Buffer to hold one Ethernet frame. Usually max size is 1518 bytes.
+    char ether_data[ETHER_MAX_LEN];
+
+    while (true)
+    {
+        // Never stop listening for frames.
+        int ethernet_frame_size = read(
+            vport->tap_file_descriptor,
+            ether_data,
+            sizeof(ether_data)
+        );
+
+        // Only continue if we actually received data.
+        if (ethernet_frame_size > 0)
+        {
+            // Ethernet header is 14 bytes.
+            assert(ethernet_frame_size >= 14);
+
+            const struct ether_header *ethernet_header =
+                (const struct ether_header *)ether_data;
+
+            /*
+             * Forward Ethernet frame to VSwitch.
+             *
+             * vport->vport_socket_file_descriptor:
+             *   UDP socket used to send data to the Python VSwitch.
+             *
+             * ether_data:
+             *   Actual Ethernet frame bytes.
+             *
+             * ethernet_frame_size:
+             *   Number of bytes in the Ethernet frame.
+             *
+             * 0:
+             *   Send normally. No special flags.
+             *
+             * (struct sockaddr *)&vport->vswitch_address:
+             *   Python VSwitch address. Cast is needed because sendto()
+             *   expects a generic socket address type.
+             *
+             * sizeof(vport->vswitch_address):
+             *   Size of the address structure.
+             */
+            ssize_t sent_byte_count = sendto(
+                vport->vport_socket_file_descriptor,
+                ether_data,
+                ethernet_frame_size,
+                0,
+                (struct sockaddr *)&vport->vswitch_address,
+                sizeof(vport->vswitch_address)
+            );
+
+            if (sent_byte_count != ethernet_frame_size)
+            {
+                fprintf(
+                    stderr,
+                    "sendto size mismatch: ethernet_frame_size=%d, sent_byte_count=%zd\n",
+                    ethernet_frame_size,
+                    sent_byte_count
+                );
+            }
+
+            printf(
+                "[VPort] Sent to VSwitch:"
+                " dhost<%02x:%02x:%02x:%02x:%02x:%02x>"
+                " shost<%02x:%02x:%02x:%02x:%02x:%02x>"
+                " type<%04x>"
+                " datasz=<%d>\n",
+
+                ethernet_header->ether_dhost[0],
+                ethernet_header->ether_dhost[1],
+                ethernet_header->ether_dhost[2],
+                ethernet_header->ether_dhost[3],
+                ethernet_header->ether_dhost[4],
+                ethernet_header->ether_dhost[5],
+
+                ethernet_header->ether_shost[0],
+                ethernet_header->ether_shost[1],
+                ethernet_header->ether_shost[2],
+                ethernet_header->ether_shost[3],
+                ethernet_header->ether_shost[4],
+                ethernet_header->ether_shost[5],
+
+                ntohs(ethernet_header->ether_type),
+                ethernet_frame_size
+            );
+        }
+    }
+}
+```
+
+
+
+
+
+
+
+
+int main (int argc, char const *argv[]){
+
+    if (argc != 3) {
+        ERROR_PRINT_THEN_EXIT("Usage: vport {server_ip} {server_port}\n");
+    }
+
+    const char *server_ip_str = argv[1];
+    int server_port = atoi(argv[2]);
+
+    struct vport_t vport;
+    vport_init(&vport, server_ip_str, server_port);
+
+    pthread_t up_forwarder;
+    if (pthread_create(&up_forwarder, NULL, forward_ether_data_to_vswitch, &vport) != 0 ) {
+        ERROR_PRINT_THEN_EXIT("fail to pthread_create: %s\n", strerror(errno));
+    }
+
+    pthread_t down_forwarder;
+    if (pthread_create(&down_forwarder, NULL, forward_ether_data_to_tap, &vport) != 0) {
+        ERROR_PRINT_THEN_EXIT("fail to pthread_create: %s\n", strerror(errno));
+    }
+
+    if (pthread_join(up_forwarder, NULL) != 0 || pthread_join(down_forwarder, NULL) != 0) {
+        ERROR_PRINT_THEN_EXIT("fail to pthread_join: %s\n", strerror(errno));
+    }
+
+    return 0;
+
+
+
 }
